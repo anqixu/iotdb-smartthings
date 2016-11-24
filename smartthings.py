@@ -28,13 +28,10 @@ import json
 
 from optparse import OptionParser
 
-try:
-    import iotdb_log
-except:
-    class iotdb_log(object):
-        @staticmethod
-        def log(**ad):
-            pprint.pprint(ad)
+class iotdb_log(object):
+    @staticmethod
+    def log(**ad):
+        pprint.pprint(ad)
 
 class SmartThings(object):
     def __init__(self, verbose=True):
@@ -68,17 +65,16 @@ class SmartThings(object):
         endpoints_response = requests.get(url=endpoints_url, params=endpoints_paramd)
         self.endpointd = endpoints_response.json()[0]
 
-        if self.verbose: iotdb_log.log(
-            "endpoints",
-            endpoints_url=endpoints_url,
-            endpoints_paramd=endpoints_paramd,
-            resultds=self.endpointd,
+        if self.verbose: print(
+            {"endpoints_url": endpoints_url,
+            "endpoints_paramd": endpoints_paramd,
+            "endpointd": self.endpointd,}
         )
 
     def request_devices(self, device_type):
         """List the devices"""
 
-        devices_url = "https://graph.api.smartthings.com%s/%s" % ( self.endpointd["url"], device_type, )
+        devices_url = "%s/%s/%s" % ( self.endpointd["base_url"], self.endpointd["url"], device_type, )
         devices_paramd = {
         }
         devices_headerd = {
@@ -87,17 +83,24 @@ class SmartThings(object):
 
         devices_response = requests.get(url=devices_url, params=devices_paramd, headers=devices_headerd)
         self.deviceds = devices_response.json()
+        #print 'DDS:',self.deviceds
         for switchd in self.deviceds:
+            if switchd is None:
+              continue
             switchd['url'] = "%s/%s" % ( devices_url, switchd['id'], )
 
-        if self.verbose: iotdb_log.log(
-            "devices",
-            url=devices_url,
-            paramd=devices_paramd,
-            deviceds=self.deviceds,
+        if self.verbose: print(
+            {"url":devices_url,
+            "paramd":devices_paramd,
+            "deviceds":self.deviceds,}
         )
 
         return self.deviceds
+
+    def request_named_device(self, device_type, label):
+      ds = self.request_devices(device_type)
+      ds = filter(lambda d: label in [ d.get("id"), d.get("label"), ], ds)
+      return ds
 
     def device_request(self, deviced, requestd):
         """Send a request the named device"""
@@ -114,6 +117,7 @@ class SmartThings(object):
             headers=command_headerd,
             data=json.dumps(requestd)
         )
+        return command_response
 
     def device_types(self):
         return dtypes
@@ -185,7 +189,7 @@ if __name__ == '__main__':
         }
 
         for d in ds:
-            iotdb_log.log(device=d, request=requestd)
+            print({"device":d, "request":requestd})
             st.device_request(d, requestd)
 
     else:
